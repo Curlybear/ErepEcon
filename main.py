@@ -5,7 +5,7 @@ import requests
 from oauth2client.service_account import ServiceAccountCredentials
 import datetime
 import json
-
+import os
 
 def getDay():
     start_date = datetime.datetime(day=21, month=11, year=2007)
@@ -97,8 +97,10 @@ def fetchData(stateSheet, orgsSheet, currentRow):
     stateSheet.update_cell(currentRow, 5, '=Sheet2!S'+ str(currentRow) + '+C'+ str(currentRow))
 
 # Config reader
+dir = os.path.dirname(__file__)
+filename = os.path.join(dir, 'config.ini')
 config = configparser.ConfigParser()
-config.read('config.ini')
+config.read(filename)
 
 # API Key
 apiKey = config['DEFAULT']['api_key']
@@ -106,7 +108,9 @@ apiKey = config['DEFAULT']['api_key']
 # Setup gSpread
 scope = ['https://spreadsheets.google.com/feeds']
 jsonFilename = config['DEFAULT']['google_key']
-credentials = ServiceAccountCredentials.from_json_keyfile_name(jsonFilename, scope)
+dir = os.path.dirname(__file__)
+filename = os.path.join(dir, jsonFilename)
+credentials = ServiceAccountCredentials.from_json_keyfile_name(filename, scope)
 gc = gspread.authorize(credentials)
 sheetKey = config['DEFAULT']['sheet_key']
 stateSheet = gc.open_by_key(sheetKey).get_worksheet(0)
