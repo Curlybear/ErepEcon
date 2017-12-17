@@ -6,6 +6,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 import datetime
 import json
 import os
+import time
 
 def getDay():
     start_date = datetime.datetime(day=21, month=11, year=2007)
@@ -33,14 +34,23 @@ def initSheet(stateSheet, orgsSheet):
     # Setup orgsSheet headers
     orgsSheet.update_acell('A1', 'Day')
     i = 2
-    for org in json.loads(config.get("DEFAULT", "orgs")):
-        r = requests.get('https://api.erepublik-deutschland.de/' + apiKey + '/organizations/details/' + str(org))
+    orgs = json.loads(config.get("DEFAULT", "orgs"))
+    orgStacks = [orgs[n:n + 10] for n in range(0, len(orgs), 10)]
+
+    for orgStack in orgStacks:
+        r = requests.get(
+            'https://api.erepublik-deutschland.de/' + apiKey + '/organizations/details/' + ','.join(orgStack))
+
+        if r.headers['X-Rate-Limit-Remaining'] == '0':
+            time.sleep(float(r.headers['X-Rate-Limit-Reset']) + 5)
+
         obj = json.loads(r.text)
-        orgDetail = obj['organizations'][str(org)]
-        orgsSheet.update_cell(1, i, orgDetail['name'] + ' CC')
-        i += 1
-        orgsSheet.update_cell(1, i, orgDetail['name'] + ' Gold')
-        i += 1
+        for org in orgStack:
+            orgDetail = obj['organizations'][str(org)]
+            orgsSheet.update_cell(1, i, orgDetail['name'] + ' CC')
+            i += 1
+            orgsSheet.update_cell(1, i, orgDetail['name'] + ' Gold')
+            i += 1
     orgsSheet.update_cell(1, i, 'Total CC')
     i += 1
     orgsSheet.update_cell(1, i, 'Total Gold')
@@ -81,20 +91,28 @@ def fetchData(stateSheet, orgsSheet, currentRow):
 
     i = 2
     orgs = json.loads(config.get("DEFAULT", "orgs"))
-    for org in orgs:
-        r = requests.get('https://api.erepublik-deutschland.de/' + apiKey + '/organizations/details/' + str(org))
+    orgStacks = [orgs[n:n + 10] for n in range(0, len(orgs), 10)]
+
+    for orgStack in orgStacks:
+        r = requests.get(
+            'https://api.erepublik-deutschland.de/' + apiKey + '/organizations/details/' + ','.join(orgStack))
+
+        if r.headers['X-Rate-Limit-Remaining'] == '0':
+            time.sleep(float(r.headers['X-Rate-Limit-Reset']) + 5)
+
         obj = json.loads(r.text)
-        orgDetail = obj['organizations'][str(org)]
-        orgsSheet.update_cell(currentRow, i, orgDetail['money']['account']['cc'])
-        i += 1
-        orgsSheet.update_cell(currentRow, i, orgDetail['money']['account']['gold'])
-        i += 1
+        for org in orgStack:
+            orgDetail = obj['organizations'][str(org)]
+            orgsSheet.update_cell(currentRow, i, orgDetail['money']['account']['cc'])
+            i += 1
+            orgsSheet.update_cell(currentRow, i, orgDetail['money']['account']['gold'])
+            i += 1
 
     orgsSheet.update_cell(currentRow, len(orgs)*2 + 2, '=' + (''.join(chr(65 + col) + str(currentRow) + '+' for col in range(1, len(orgs)*2, 2)))[:-1])
     orgsSheet.update_cell(currentRow, len(orgs)*2 + 3, '=' + (''.join(chr(65 + col) + str(currentRow) + '+' for col in range(2, len(orgs)*2 + 1, 2)))[:-1])
 
-    stateSheet.update_cell(currentRow, 4, '=Sheet2!R'+ str(currentRow) + '+B'+ str(currentRow))
-    stateSheet.update_cell(currentRow, 5, '=Sheet2!S'+ str(currentRow) + '+C'+ str(currentRow))
+    stateSheet.update_cell(currentRow, 4, '=Sheet2!' + chr(65 + len(orgs)*2 + 1) + str(currentRow) + '+B'+ str(currentRow))
+    stateSheet.update_cell(currentRow, 5, '=Sheet2!' + chr(65 + len(orgs)*2 + 2) + str(currentRow) + '+C'+ str(currentRow))
 
 # Config reader
 dir = os.path.dirname(__file__)
